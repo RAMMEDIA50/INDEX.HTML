@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Five Millionaires Dashboard</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body{
+background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+color:white;
+font-family:'Segoe UI';
+}
+
+/* GLASS CARD */
+.card-box{
+background: rgba(255,255,255,0.08);
+backdrop-filter: blur(10px);
+padding:15px;
+border-radius:15px;
+margin-bottom:15px;
+}
+
+/* MEMBER UI */
+.member{
+display:flex;
+align-items:center;
+margin-bottom:10px;
+}
+
+.avatar{
+width:45px;
+height:45px;
+border-radius:50%;
+background:linear-gradient(45deg,#00c6ff,#0072ff);
+display:flex;
+align-items:center;
+justify-content:center;
+font-weight:bold;
+margin-right:10px;
+}
+
+.amount{
+margin-left:auto;
+background:rgba(0,0,0,0.4);
+padding:5px 10px;
+border-radius:10px;
+}
+
+/* CLOCK */
+.clock{
+text-align:center;
+margin-bottom:15px;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- 🔐 AUTH PROTECTION -->
+<script>
+if(localStorage.getItem("auth")!=="true"){
+window.location.href="/";
+}
+</script>
+
+<div class="container mt-3">
+
+<!-- HEADER -->
+<div class="d-flex justify-content-between align-items-center">
+<h3>💎 FIVE MILLIONAIRES</h3>
+<button class="btn btn-danger" onclick="logout()">Logout</button>
+</div>
+
+<!-- CLOCK -->
+<div class="clock">
+<h5 id="date"></h5>
+<h3 id="time"></h3>
+</div>
+
+<!-- DASHBOARD -->
+<div class="row text-center">
+
+<div class="col-md-3">
+<div class="card-box">
+<h6>Total Saved</h6>
+<h4 id="total"></h4>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card-box">
+<h6>This Month</h6>
+<h4 id="month"></h4>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card-box">
+<h6>Weeks</h6>
+<h4 id="weeks"></h4>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card-box">
+<h6>Top Member</h6>
+<h4 id="top"></h4>
+</div>
+</div>
+
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="card-box admin-panel mt-3">
+<h5>⚙️ Admin Panel</h5>
+
+<input id="memberName" class="form-control mb-2" placeholder="New member name">
+
+<button class="btn btn-success" onclick="addMember()">Add Member</button>
+<button class="btn btn-danger" onclick="removeMember()">Remove Last</button>
+
+</div>
+
+<!-- MEMBERS DISPLAY -->
+<div class="card-box">
+<h5>Members Overview</h5>
+<div id="membersUI"></div>
+</div>
+
+<!-- TABLE -->
+<div class="card-box">
+<h5>Weekly Contributions</h5>
+
+<table class="table table-bordered text-center text-white" id="table">
+<thead>
+<tr id="tableHead"></tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<button class="btn btn-primary" onclick="addRow()">Add Record</button>
+
+</div>
+
+</div>
+
+<script>
+
+/* 🔐 ROLE CONTROL */
+if(localStorage.getItem("role")!=="admin"){
+document.querySelector(".admin-panel").style.display="none";
+}
+
+/* LOGOUT */
+function logout(){
+localStorage.clear();
+window.location.href="/";
+}
+
+/* DATA */
+let members = JSON.parse(localStorage.getItem("members")) || ["Aziz","Baraka"];
+let data = JSON.parse(localStorage.getItem("data")) || [];
+
+/* SAVE */
+function save(){
+localStorage.setItem("members", JSON.stringify(members));
+localStorage.setItem("data", JSON.stringify(data));
+}
+
+/* BUILD TABLE */
+function buildTable(){
+let head = "<th>Month</th><th>Week</th>";
+members.forEach(m=> head += `<th>${m}</th>`);
+document.getElementById("tableHead").innerHTML = head;
+}
+
+/* ADD MEMBER */
+function addMember(){
+let name = document.getElementById("memberName").value;
+if(!name) return;
+members.push(name);
+save();
+render();
+}
+
+/* REMOVE MEMBER */
+function removeMember(){
+members.pop();
+save();
+render();
+}
+
+/* ADD ROW */
+function addRow(){
+data.push({
+month:"January",
+week:data.length+1,
+values: members.map(()=>0)
+});
+save();
+render();
+}
+
+/* UPDATE CELL */
+function updateCell(i,j,val){
+data[i].values[j] = parseFloat(val)||0;
+save();
+update();
+}
+
+/* RENDER */
+function render(){
+buildTable();
+
+let html="";
+data.forEach((row,i)=>{
+html+=`<tr>
+<td contenteditable oninput="data[${i}].month=this.innerText; save(); update();">${row.month}</td>
+<td>${row.week}</td>`;
+
+row.values.forEach((v,j)=>{
+html+=`<td contenteditable oninput="updateCell(${i},${j},this.innerText)">${v}</td>`;
+});
+
+html+=`</tr>`;
+});
+
+document.querySelector("#table tbody").innerHTML=html;
+
+update();
+}
+
+/* UPDATE DASHBOARD */
+function update(){
+let total=0,monthTotal=0;
+let sums={}; members.forEach(m=>sums[m]=0);
+
+data.forEach(r=>{
+r.values.forEach((v,i)=>{
+total+=v;
+sums[members[i]]+=v;
+
+if(r.month.toLowerCase()===currentMonth()){
+monthTotal+=v;
+}
+});
+});
+
+document.getElementById("total").innerText=total;
+document.getElementById("month").innerText=monthTotal;
+document.getElementById("weeks").innerText=data.length;
+
+let top=Object.entries(sums).sort((a,b)=>b[1]-a[1])[0];
+document.getElementById("top").innerText=top?top[0]:"-";
+
+renderMembers(sums);
+}
+
+/* MEMBERS UI */
+function renderMembers(sums){
+let html="";
+members.forEach(m=>{
+html+=`
+<div class="member">
+<div class="avatar">${m[0]}</div>
+<div>${m}</div>
+<div class="amount">${sums[m]}</div>
+</div>`;
+});
+document.getElementById("membersUI").innerHTML=html;
+}
+
+/* MONTH */
+function currentMonth(){
+return new Date().toLocaleString('default',{month:'long'}).toLowerCase();
+}
+
+/* CLOCK */
+function clock(){
+let now=new Date();
+document.getElementById("time").innerText=now.toLocaleTimeString();
+document.getElementById("date").innerText=now.toDateString();
+}
+setInterval(clock,1000);
+
+/* INIT */
+render();
+
+</script>
+
+</body>
+</html>
